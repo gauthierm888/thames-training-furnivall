@@ -405,7 +405,9 @@
   const keys = {};
   let toastUntil = 0;
 
-  function toast(msg, secs = 2) { $('toast').textContent = msg; toastUntil = performance.now() + secs * 1000; }
+  // Announcements stay on screen TOAST_STRETCH times longer than the duration given where they are triggered
+  const TOAST_STRETCH = 1.6;
+  function toast(msg, secs = 2) { $('toast').textContent = msg; toastUntil = performance.now() + secs * TOAST_STRETCH * 1000; }
 
   function startGame() {
     route = getRoute('up');
@@ -1277,17 +1279,18 @@
 
   function hud() {
     const p = sample(route, st.s), F = tide.frac;
-    $('hTime').textContent = fmtTime(st.time);
-    const chain = route.chain(st.s);
-    $('hDist').textContent = st.reachedUL ? `✔ +${UL_BONUS}` : `${Math.round(Math.abs(route.ulC - chain))} m`;
-    $('hHome').textContent = `${Math.round(Math.abs(route.dockC - chain))} m`;
-    const sc = calcScore();
-    $('hScore').textContent = sc.total;
+    // Hidden HUD rows (also commented out in index.html): uncomment both to bring them back.
+    // $('hTime').textContent = fmtTime(st.time);
+    // const chain = route.chain(st.s);
+    // $('hDist').textContent = st.reachedUL ? `✔ +${UL_BONUS}` : `${Math.round(Math.abs(route.ulC - chain))} m`;
+    // $('hHome').textContent = `${Math.round(Math.abs(route.dockC - chain))} m`;
+    // const sc = calcScore();
+    // $('hScore').textContent = sc.total;
     $('hOvt').textContent = `${st.cleanOv} ✔ / ${st.badOv} ✘`;
     $('hSplit').textContent = st.vs > 0.3 ? fmtTime(500 / st.vs) : '–';
-    $('hSpeed').textContent = `${st.u.toFixed(1)} / ${st.vs.toFixed(1)} m/s`;
+    // $('hSpeed').textContent = `${st.u.toFixed(1)} / ${st.vs.toFixed(1)} m/s`;
     $('hRate').textContent = st.rowing ? `${st.rate} spm` : 'easy oar';
-    $('hMode').textContent = st.manual ? 'MANUAL (←/→)' : `auto · ${st.lane} lane`;
+    // $('hMode').textContent = st.manual ? 'MANUAL (←/→)' : `auto · ${st.lane} lane`;
     const L = navL(p, F), Rr = navR(p, F);
     const x = (st.d + Rr) / (L + Rr);
     $('hSide').textContent = x > 0.62 ? `${route.leftBank} side (left)` : x < 0.38 ? `${route.rightBank} side (right)` : 'centre';
@@ -1297,11 +1300,12 @@
     const c = st.stream;
     $('hStream').textContent = Math.abs(c) < 0.05 ? 'slack' : `${Math.abs(c).toFixed(2)} m/s ${c > 0 ? 'with you' : 'against you'}`;
     $('hWidth').textContent = `${Math.round(L + Rr)} m of ${Math.round(p.hwL + p.hwR)} m`;
-    if (tide.mode === 'manual') $('hSrc').textContent = 'Manual tide setting';
-    else if (tide.status === 'live') {
-      $('hSrc').textContent = `${tide.source.split(' (')[0]}: ${tide.readingLevel.toFixed(2)} mAOD at ` +
-        `${new Date(tide.readingTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}, now ≈ ${tide.level.toFixed(2)} m`;
-    } else $('hSrc').textContent = tide.source || 'Loading tide…';
+    // Tide gauge source line (Richmond gauge...), hidden for now:
+    // if (tide.mode === 'manual') $('hSrc').textContent = 'Manual tide setting';
+    // else if (tide.status === 'live') {
+    //   $('hSrc').textContent = `${tide.source.split(' (')[0]}: ${tide.readingLevel.toFixed(2)} mAOD at ` +
+    //     `${new Date(tide.readingTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}, now ≈ ${tide.level.toFixed(2)} m`;
+    // } else $('hSrc').textContent = tide.source || 'Loading tide…';
 
     const next = route.bends.find((b) => b.s1 > st.s);
     if (next) {
