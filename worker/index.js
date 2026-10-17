@@ -1,5 +1,5 @@
-// Cloudflare Pages "advanced mode" worker: serves the game files, adds security headers, and provides the shared-scores API.
-// Scores are kept in a Cloudflare D1 database bound to this project as "DB" (see ../README.md and ../database/schema.sql).
+// Cloudflare Worker (Workers + static assets): serves the game files from ../site, adds security headers, and provides the shared-scores API.
+// Scores are kept in a Cloudflare D1 database bound to this Worker as "DB" (see ../wrangler.jsonc, ../README.md and ../database/schema.sql).
 // Without the binding the API answers 503 and the game keeps its boards in the player's own browser.
 
 const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +

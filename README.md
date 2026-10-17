@@ -10,15 +10,16 @@ real-time flood-monitoring API (Open Government Licence).
 
 | Need | Cloudflare service (free plan) |
 | --- | --- |
-| Hosting the game | Pages |
-| API for shared scores + security headers | the Worker in `site/_worker.js` (runs inside Pages) |
+| Hosting the game + API for shared scores + security headers | one Worker with static assets (`wrangler.jsonc`, `worker/index.js`, `site/`) |
 | Storing the scores | D1 database |
 
 ## Folder
 
 | Path | What it is |
 | --- | --- |
-| `site/` | **The game** and the only thing Cloudflare publishes: `index.html`, `game.js`, `river-data.js`, `config.js`, `_worker.js`. |
+| `site/` | **The game**, published as static files: `index.html`, `game.js`, `river-data.js`, `config.js`. |
+| `worker/index.js` | The Worker: scores API and security headers. Kept outside `site/` so it is never published as a file. |
+| `wrangler.jsonc` | Cloudflare project settings (name, assets folder, D1 database). **You must paste your D1 database id in it** (step 3). |
 | `database/schema.sql` | One-off setup of the scores table. |
 | `data-build/` | Only for rebuilding `river-data.js` from OpenStreetMap (`build-river.ps1` + raw JSON). Not published. |
 
@@ -39,19 +40,23 @@ Use **personal** accounts, not the edfenergy GitHub organisation. Players enter 
    git push -u origin main
    ```
    (Do this before the first push: the repo was prepared with a placeholder author. Use your GitHub no-reply address if you prefer privacy.)
+   Or upload through the GitHub website (drag and drop the **contents** of the folder, not the folder itself).
 
 ### 2. Create the database (D1)
 1. Cloudflare dashboard > **Storage & databases > D1 > Create database**, name it `tideway`.
 2. Open it > **Console**, paste the whole of `database/schema.sql`, **Execute**.
+3. On the database's overview page, copy its **Database ID** (a long code like `1a2b3c4d-....`).
 
-### 3. Create the site (Pages)
-1. **Workers & Pages > Create > Pages > Connect to Git**, pick the repository.
-2. Build settings: framework **None**, build command **empty**, build output directory **`site`**. **Save and Deploy**.
-3. When it has deployed: the project's **Settings > Bindings > Add > D1 database**, variable name exactly **`DB`**, database `tideway`
-   (add it for Production, and Preview if you use previews). Then **Deployments > … > Retry deployment** so the binding takes effect.
-4. Your game is at `https://<project-name>.pages.dev`. Send it to your friends.
+### 3. Tell the project about the database
+Open `wrangler.jsonc` and replace `PASTE-YOUR-D1-DATABASE-ID-HERE` with the Database ID (keep the quotes).
+On GitHub: open the file > pencil icon (Edit) > change it > **Commit changes**.
 
-### 4. Check it works
+### 4. Create the site (Workers)
+1. **Workers & Pages > Create > Import a repository** (Connect to Git), pick the repository.
+2. Leave the build command **empty** and the deploy command as `npx wrangler deploy`. **Save and Deploy**.
+3. Your game is at `https://thames-training-furnivall.<your-subdomain>.workers.dev` (shown on the project page). Send it to your friends.
+
+### 5. Check it works
 Open the address on a phone and a laptop, enter a nickname, row out and back to the pontoon, press **Get off the boat**.
 The note under the boards should say "Online boards – shared with everyone". Both devices should show the same boards.
 
@@ -62,11 +67,8 @@ git add -A
 git commit -m "Describe the change"
 git push
 ```
-Cloudflare builds and publishes the new version within a minute or so; the address stays the same and **scores are kept**
-(they live in D1, not in the site). Players may need to refresh once.
-
-*Without GitHub:* in Pages you can instead choose **Upload assets** and drag in the contents of `site/` (including `_worker.js`).
-You still add the `DB` binding in the project settings. Updates are then manual re-uploads.
+(or upload the changed files on the GitHub website, keeping the same folder structure). Cloudflare builds and publishes the new version
+within a minute or so; the address stays the same and **scores are kept** (they live in D1, not in the site). Players may need to refresh once.
 
 ## Good to know
 - **Cheating:** the server rebuilds each score from the submitted counts and rejects impossible ones (speed, penalty time, ranges),
