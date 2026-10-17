@@ -873,17 +873,24 @@
   }
 
   // ---------- Rendering ----------
-  let W = 0, H = 0, view = null;
+  let W = 0, H = 0, view = null, camY = 0;
+  // Keeps the buttons clear of the footer credit, and the boat clear of the buttons (short or landscape phone screens)
+  function layoutCam() {
+    document.documentElement.style.setProperty('--attrib-h', `${$('attrib').offsetHeight + 4}px`);
+    const top = $('controls').getBoundingClientRect().top;
+    camY = clamp(Math.min(H * 0.66, top - 34), H * 0.3, H * 0.66);
+  }
   function resize() {
     const dpr = window.devicePixelRatio || 1;
     W = cv.clientWidth; H = cv.clientHeight;
     cv.width = W * dpr; cv.height = H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    layoutCam();
   }
 
   function makeView(bx, by, th, S) {
     const a = Math.PI / 2 - th, ca = Math.cos(a), sa = Math.sin(a);
-    const cx = W / 2, cy = H * 0.66;
+    const cx = W / 2, cy = camY || H * 0.66;
     return {
       a, S,
       p(x, y) {
@@ -1412,7 +1419,7 @@
     }
     draw(now);
     hudT += realDt;
-    if (hudT > 0.1) { hud(); hudT = 0; }
+    if (hudT > 0.1) { hud(); layoutCam(); hudT = 0; }
     requestAnimationFrame(frame);
   }
 

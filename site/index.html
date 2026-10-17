@@ -17,12 +17,18 @@
   #warn { color: #ffcf4a; font-weight: 700; min-height: 1.2em; }
   #side { top: 8px; right: 8px; padding: 5px; }
   #minimap { width: 160px; height: 100px; display: block; background: #4e6e3a; border-radius: 4px; }
-  #controls { bottom: 10px; left: 50%; transform: translateX(-50%); width: max-content; max-width: 96vw; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  /* --attrib-h is set from the real footer height in game.js (layoutCam), so the controls never overlap the OpenStreetMap credit */
+  :root { --attrib-h: 16px; }
+  #controls { bottom: calc(var(--attrib-h) + 10px); left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100vw - 16px); display: flex; flex-direction: column; gap: 6px; }
+  #controls .btnrow { display: flex; gap: 6px; justify-content: center; }
+  #controls button { flex: 1 1 auto; white-space: nowrap; }
   button, select, input { font: inherit; }
   button { background: #1f5d8c; color: #fff; border: 1px solid #5fa0d0; border-radius: 6px; padding: 8px 12px; cursor: pointer; }
   button.on { background: #e0a020; border-color: #ffd47a; color: #102030; font-weight: 700; }
   button:hover { filter: brightness(1.15); }
-  #toast { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); max-width: min(560px, calc(100vw - 440px)); font-size: 18px; font-weight: 700; color: #ffdf6a; text-shadow: 0 1px 4px #000; pointer-events: none; text-align: center; }
+  /* Announcements: a banner pinned to the top edge of the screen, above the HUD, the map panel and the buttons */
+  #toast { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 8px); left: 50%; transform: translateX(-50%); z-index: 30; width: max-content; max-width: calc(100vw - 16px); padding: 6px 14px; border-radius: 10px; background: rgba(10, 25, 40, .9); font-size: 18px; font-weight: 700; line-height: 1.3; color: #ffdf6a; text-shadow: 0 1px 4px #000; pointer-events: none; text-align: center; opacity: 0; transition: opacity .25s; }
+  #toast:empty { display: none; }
   #menu { position: absolute; inset: 0; background: rgba(5, 15, 30, .82); display: flex; align-items: center; justify-content: center; }
   #menu .box { background: #10263c; border: 1px solid #3c6f99; border-radius: 10px; padding: 20px 26px; width: min(1040px, 96vw); max-height: 94vh; overflow: auto; }
   #menu .settings { max-width: 480px; }
@@ -46,8 +52,19 @@
   #boards tr.last td { background: rgba(242, 183, 5, .18); color: #ffe27a; }
   #bOff { background: #1b7a3a; border-color: #f2b705; color: #fff; font-weight: 700; }
   #manualTide { display: none; }
-  #attrib { position: absolute; bottom: 2px; right: 6px; font-size: 10px; color: #e8f0e0; opacity: .8; }
+  #attrib { position: absolute; bottom: 2px; right: 6px; max-width: calc(100vw - 12px); font-size: 10px; line-height: 1.3; color: #e8f0e0; opacity: .9; text-shadow: 0 1px 2px #000, 0 0 3px #000; }
   #attrib a { color: #e8f0e0; }
+  /* Phones and short screens: smaller panels and buttons */
+  @media (max-width: 600px), (max-height: 520px) {
+    #controls { padding: 6px; gap: 5px; }
+    #controls .btnrow { gap: 5px; }
+    #controls button { padding: 7px 8px; font-size: 13px; }
+    #attrib { left: 6px; right: 6px; text-align: center; }
+  }
+  @media (max-width: 400px) {
+    #hud { width: 166px; }
+    #minimap { width: 136px; height: 85px; }
+  }
 </style>
 </head>
 <body>
@@ -85,17 +102,21 @@
 </div>
 
 <div id="controls" class="panel">
-  <button id="bL" title="A or 1">◀ Left</button>
-  <button id="bM" title="S or 2">Middle</button>
-  <button id="bR" title="D or 3">Right ▶</button>
-  <span style="width:10px"></span>
-  <button id="bRateDn" title="↓">Rate –</button>
-  <button id="bRow" title="Space">Easy oar</button>
-  <button id="bRateUp" title="↑">Rate +</button>
-  <span style="width:10px"></span>
-  <button id="bTurn" title="U or T">⟲ Turn round</button>
-  <button id="bOff" title="G" style="display:none">⚓ Get off the boat</button>
-  <button id="bPause" title="P">Pause</button>
+  <div class="btnrow">
+    <button id="bL" title="A or 1">◀ Left</button>
+    <button id="bM" title="S or 2">Middle</button>
+    <button id="bR" title="D or 3">Right ▶</button>
+  </div>
+  <div class="btnrow">
+    <button id="bRateDn" title="↓">Rate –</button>
+    <button id="bRow" title="Space">Easy oar</button>
+    <button id="bRateUp" title="↑">Rate +</button>
+  </div>
+  <div class="btnrow">
+    <button id="bTurn" title="U or T">⟲ Turn round</button>
+    <button id="bOff" title="G" style="display:none">⚓ Get off the boat</button>
+    <button id="bPause" title="P">Pause</button>
+  </div>
 </div>
 
 <div id="toast"></div>
