@@ -30,7 +30,7 @@
   #toast { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 8px); left: 50%; transform: translateX(-50%); z-index: 30; width: max-content; max-width: calc(100vw - 16px); padding: 6px 14px; border-radius: 10px; background: rgba(10, 25, 40, .9); font-size: 18px; font-weight: 700; line-height: 1.3; color: #ffdf6a; text-shadow: 0 1px 4px #000; pointer-events: none; text-align: center; opacity: 0; transition: opacity .25s; }
   #toast:empty { display: none; }
   #menu { position: absolute; inset: 0; background: rgba(5, 15, 30, .82); display: flex; align-items: center; justify-content: center; }
-  #menu .box { background: #10263c; border: 1px solid #3c6f99; border-radius: 10px; padding: 20px 26px; width: min(1040px, 96vw); max-height: 94vh; overflow: auto; }
+  #menu .box { background: #10263c; border: 1px solid #3c6f99; border-radius: 10px; padding: 20px 26px; width: min(1040px, 96vw); max-height: calc(100vh - var(--attrib-h, 16px) - 24px); overflow: auto; }
   #menu .settings { max-width: 480px; }
   #boards { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 8px; }
   #boards > div { flex: 1 1 440px; min-width: 0; }
@@ -52,10 +52,28 @@
   #boards tr.last td { background: rgba(242, 183, 5, .18); color: #ffe27a; }
   #bOff { background: #1b7a3a; border-color: #f2b705; color: #fff; font-weight: 700; }
   #manualTide { display: none; }
+  #bExit { display: block; width: 100%; margin-top: 5px; padding: 5px 8px; font-size: 12px; background: #7a2a2a; border-color: #d98b8b; }
+  #bExit.armed { background: #c62828; border-color: #ffb3b3; font-weight: 700; }
+  /* Menu tabs: Play / Rules / Sources */
+  #tabs { position: sticky; top: 0; z-index: 2; display: flex; gap: 6px; margin: 12px 0 14px; padding: 6px 0; background: #10263c; border-bottom: 1px solid #2c4a66; }
+  #tabs button { flex: 1 1 0; padding: 9px 6px; font-weight: 600; background: #17324b; border-color: #3c6f99; }
+  #tabs button.active { background: #e0a020; border-color: #ffd47a; color: #102030; }
+  .tabpanel[hidden] { display: none; }
+  .doc { font-size: 14px; line-height: 1.55; color: #d6e2ee; max-width: 780px; }
+  .doc h3 { margin: 20px 0 6px; font-size: 16px; color: #ffdf6a; }
+  .doc h3:first-child { margin-top: 4px; }
+  .doc p { margin: 6px 0; }
+  .doc ul { margin: 6px 0; padding-left: 20px; }
+  .doc li { margin: 4px 0; }
+  .doc a { color: #8fd0ff; overflow-wrap: anywhere; }
+  .doc table { border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+  .doc td { padding: 3px 14px 3px 0; vertical-align: top; }
+  .doc .note { color: #9fb4c6; font-size: 12.5px; }
   #attrib { position: absolute; bottom: 2px; right: 6px; max-width: calc(100vw - 12px); font-size: 10px; line-height: 1.3; color: #e8f0e0; opacity: .9; text-shadow: 0 1px 2px #000, 0 0 3px #000; }
   #attrib a { color: #e8f0e0; }
   /* Phones and short screens: smaller panels and buttons */
   @media (max-width: 600px), (max-height: 520px) {
+    #menu .box { padding: 14px 14px; }
     #controls { padding: 6px; gap: 5px; }
     #controls .btnrow { gap: 5px; }
     #controls button { padding: 7px 8px; font-size: 13px; }
@@ -99,6 +117,7 @@
 
 <div id="side" class="panel">
   <canvas id="minimap" width="160" height="100"></canvas>
+  <button id="bExit" title="Back to the menu – the row is not saved">✕ Exit</button>
 </div>
 
 <div id="controls" class="panel">
@@ -122,9 +141,16 @@
 <div id="toast"></div>
 
 <div id="menu">
-  <div class="box">
+  <div class="box" id="menuBox">
     <h1>Tideway Trainer</h1>
-    <div style="color:#c7d7e6">Row from the Furnivall Sculling Club pontoon on the real Thames, among other crews, and get off at the pontoon when you are done. The UL Boat House is optional – reach it for a bonus.</div>
+    <div style="color:#c7d7e6">Row the real Thames from the Furnivall Sculling Club pontoon, among other crews, under the PLA Tideway Code.</div>
+    <div id="tabs" role="tablist">
+      <button type="button" role="tab" data-tab="play" class="active" aria-selected="true">▶ Play</button>
+      <button type="button" role="tab" data-tab="rules" aria-selected="false">📖 Rules</button>
+      <button type="button" role="tab" data-tab="sources" aria-selected="false">🔗 Sources</button>
+    </div>
+
+    <section id="tab-play" class="tabpanel">
     <div id="result"></div>
 
     <div class="settings">
@@ -171,42 +197,120 @@
       <div id="crazyBox"><h2>🤪 Crazyboard – the worst rows</h2><div id="crazy"></div></div>
     </div>
     <div id="boardNote" class="keys" style="margin-top:4px"></div>
-    <div class="keys" style="margin-top:6px">
-      <b>Score</b> = distance (+0.5 per metre) + UL Boat House bonus (+1000) + clean overtakes (+100 each) − dodgy overtakes (−100) −
-      Code penalties (−50) − collisions and groundings (−150) − time (−1 per 10 s). Higher is better.
-      <b>Chaos</b> (CrazyBoard) = 10 × collisions + 8 × groundings + 6 × dodgy overtakes + 3 × Code penalties. Use a nickname: names are visible to everyone.
-    </div>
+    <div class="keys" style="margin-top:6px">Use a nickname: names are visible to everyone who plays. How the score and the Chaos ranking are worked out is explained in the Rules tab.</div>
+    </section>
 
-    <div class="keys">
-      <b>Lane (auto-steer):</b> <kbd>A</kbd>/<kbd>1</kbd> left, <kbd>S</kbd>/<kbd>2</kbd> middle, <kbd>D</kbd>/<kbd>3</kbd> right ·
-      <b>Manual steer:</b> hold <kbd>←</kbd>/<kbd>→</kbd> ·
-      <b>Rate:</b> <kbd>↑</kbd>/<kbd>↓</kbd> · <b>Row / easy:</b> <kbd>Space</kbd> ·
-      <b>Zoom:</b> <kbd>+</kbd>/<kbd>-</kbd> · <b>Turn round:</b> <kbd>U</kbd>/<kbd>T</kbd> · <b>Get off the boat:</b> <kbd>G</kbd> ·
-      <b>Pause:</b> <kbd>P</kbd> · <b>Restart:</b> <kbd>R</kbd><br>
-      <b>The row:</b> you start alongside the Furnivall Sculling Club pontoon (Middlesex bank, just above Hammersmith Bridge) and
-      row where you like. Rowing as far as the UL Boat House (past Hammersmith, Chiswick Eyot, Barnes and Chiswick Bridge) earns a bonus.
-      Whenever you are back at the pontoon (green/gold ring, keep to the Middlesex side) after rowing away from it, a
-      <b>Get off the boat</b> button appears – press it to finish and record your score.<br><br>
-      <b>Other crews:</b> single sculls to eights are on the river, some sitting still and some rowing slowly. They always obey the Code
-      (stationary and against-the-stream boats in the Inshore Zone, boats with the stream on the starboard side of the Fairway).
-      Overtake them on the <b>outside</b> (river-centre side) with room to spare, never within 75 m of a bridge and never into oncoming
-      traffic: that is a clean overtake (+100). Anything else is a dodgy overtake (−100, +5 s). Hitting a boat is +15 s. In auto-steer
-      the boat goes round them for you; use <kbd>Space</kbd> (easy oar) to hold back behind a slower boat near a bridge.<br>
-      <b>The coach:</b> break the Code, collide, run aground or overtake badly and the coach launch roars up alongside to shout at you.<br><br>
-      Left/right are relative to the direction of travel. Lanes are fixed in the high-water river:
-      left/right = the Inshore Zones, middle = the starboard (right-hand) half of the Fairway.
-      At low tide an Inshore Zone can dry out – the auto-steered lane then follows the water's edge;
-      in manual steering (←/→) you can run aground.
-      The tidal stream is strongest in the deep water on the outside of bends and weakest inshore.<br><br>
-      <b>Tideway Code (PLA, Upper Tideway Code Area):</b> rowing <i>against</i> the stream, work the slacks in the Inshore Zone –
-      Surrey bank from Hammersmith to the Chiswick Steps Crossing Zone, Middlesex bank from there to the UL Boat House –
-      and only cross at the Crossing Zones. Rowing <i>with</i> the stream (or at slack water), keep to the starboard side of the Fairway.
-      Out of position for more than 4 s = +5 s penalty. Hitting a bridge pier, a pier/pontoon or grounding = +15 s.
-      Bridge arches are numbered #1 (Middlesex) to #3 (Surrey); pier positions are approximate.<br>
-      <b>Turning round:</b> press <kbd>U</kbd> to sweep across the river and head back. The Code says never to spin on the spot,
-      so the boat arcs across the river – it needs room, and the tide carries you while you turn, so don't turn just upstream
-      of a bridge or pier. Past the end of the map the boat turns round by itself.
-    </div>
+    <section id="tab-rules" class="tabpanel doc" hidden>
+      <h3>The goal</h3>
+      <p>You start beside the Furnivall Sculling Club pontoon (Middlesex bank, just above Hammersmith Bridge) and row where you like, among other crews.
+      Rowing as far as the UL Boat House – past Hammersmith, Chiswick Eyot, Barnes and Chiswick bridges – is optional and earns a bonus.</p>
+      <p>When you are back at the pontoon (the green and gold ring, on the Middlesex side) after rowing away from it, a <b>Get off the boat</b> button appears.
+      Press it to finish: only then is your row saved to the boards. <b>Exit</b>, under the little map, takes you back to this menu without saving (tap it twice).</p>
+
+      <h3>Controls</h3>
+      <table>
+        <tr><td><kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>Lane: left, middle or right (the boat steers itself to it)</td></tr>
+        <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Steer by hand (hold). You can then run aground or hit things</td></tr>
+        <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Stroke rate up / down</td></tr>
+        <tr><td><kbd>Space</kbd></td><td>Easy oar / row again</td></tr>
+        <tr><td><kbd>U</kbd> or <kbd>T</kbd></td><td>Turn round</td></tr>
+        <tr><td><kbd>G</kbd></td><td>Get off the boat (when at the pontoon)</td></tr>
+        <tr><td><kbd>P</kbd> or <kbd>Esc</kbd></td><td>Pause</td></tr>
+        <tr><td><kbd>R</kbd></td><td>Start a new row straight away (the current one is not saved)</td></tr>
+        <tr><td><kbd>+</kbd> <kbd>-</kbd> or mouse wheel</td><td>Zoom</td></tr>
+      </table>
+      <p class="note">On a phone, use the on-screen buttons.</p>
+
+      <h3>Lanes, tide and low water</h3>
+      <p>Left and right always mean left and right in your direction of travel. The left and right lanes are the Inshore Zones along each bank;
+      the middle lane is the starboard (right-hand) half of the Fairway, the deeper channel in the middle.</p>
+      <p>The tide comes live from the Environment Agency tide gauges. At low tide the river is narrower, especially on the inside of bends, and an Inshore Zone can dry out.
+      In auto-steer the boat then follows the water's edge; when steering by hand you can run aground.
+      The stream is strongest in the deep water, on the outside of bends, and weakest near the banks.</p>
+
+      <h3>The Tideway Code</h3>
+      <p>The game follows the PLA's Tideway Code for the Upper Tideway.</p>
+      <ul>
+        <li><b>Against the stream</b> (flood going up river, ebb going down): work the slacks in the Inshore Zone on the slack bank – the Surrey bank from Hammersmith to the Chiswick Steps Crossing Zone, then the Middlesex bank up to the UL Boat House – and cross only inside the yellow Crossing Zones.</li>
+        <li><b>With the stream</b>, or at slack water: keep to the starboard side of the Fairway.</li>
+        <li>Out of position for more than 4 seconds costs a Tideway Code penalty: +5 s and −50 points.</li>
+        <li>Hitting a bridge pier or a pontoon, or running aground, costs +15 s and −150 points.</li>
+        <li>Bridge arches are numbered #1 (Middlesex side) to #3 (Surrey side), and the boat aims for the middle of an arch. Bridge piers and pontoons are obstacles.</li>
+      </ul>
+
+      <h3>Turning round</h3>
+      <p>Press <kbd>U</kbd> to sweep across the river and head back. The Code says never to spin on the spot, so the boat makes a wide arc. It needs room, and the tide carries you while you turn, so don't turn just upstream of a bridge or pier. Past the end of the map the boat turns round by itself.</p>
+
+      <h3>Other crews and overtaking</h3>
+      <p>Single sculls to eights share the river, some sitting still and some rowing slowly. They always obey the Code: stationary boats and boats going against the stream sit in the Inshore Zone, and boats going with the stream keep to the starboard side of the Fairway.</p>
+      <ul>
+        <li><b>Clean overtake (+100):</b> pass on the outside (the river-centre side), with room to spare, never within 75 m of a bridge and never into oncoming traffic.</li>
+        <li><b>Dodgy overtake (−100 points, +5 s):</b> anything else.</li>
+        <li><b>Hitting a boat:</b> +15 s and −150 points.</li>
+      </ul>
+      <p>In auto-steer the boat goes round other crews for you. Use <kbd>Space</kbd> (easy oar) to hold back behind a slower boat near a bridge.</p>
+
+      <h3>The coach</h3>
+      <p>Break the Code, collide, run aground or overtake badly and the coach's launch roars up alongside to shout at you. It goes away once you behave.</p>
+
+      <h3>Score</h3>
+      <ul>
+        <li>Distance rowed: +0.5 per metre</li>
+        <li>UL Boat House reached: +1000</li>
+        <li>Clean overtakes: +100 each · dodgy overtakes: −100 each</li>
+        <li>Tideway Code penalties: −50 each</li>
+        <li>Collisions and groundings: −150 each</li>
+        <li>Time: −1 per 10 seconds (the time includes the penalty seconds above)</li>
+      </ul>
+      <p>The score is never below 0, and higher is better.</p>
+      <p><b>Crazyboard</b> ranks the wildest rows by <b>Chaos</b> = 10 × collisions + 8 × groundings + 6 × dodgy overtakes + 3 × Code penalties.</p>
+    </section>
+
+    <section id="tab-sources" class="tabpanel doc" hidden>
+      <h3>River, bridges, buoys and landmarks – OpenStreetMap</h3>
+      <p>The shape of the river, the banks, Chiswick Eyot, the bridges, the PLA Fairway buoys, the piers and pontoons and the club buildings come from
+      <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>, © OpenStreetMap contributors, used under the
+      <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noopener noreferrer">Open Database Licence (ODbL)</a>
+      (<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">copyright and licence</a>). Data was downloaded with the
+      <a href="https://overpass-api.de/" target="_blank" rel="noopener noreferrer">Overpass API</a>. The main objects used:</p>
+      <ul>
+        <li><a href="https://www.openstreetmap.org/relation/28934" target="_blank" rel="noopener noreferrer">River Thames water area</a> (river banks)</li>
+        <li>Bridges: <a href="https://www.openstreetmap.org/way/576802756" target="_blank" rel="noopener noreferrer">Hammersmith</a>,
+          <a href="https://www.openstreetmap.org/way/628685252" target="_blank" rel="noopener noreferrer">Barnes</a>,
+          <a href="https://www.openstreetmap.org/way/576806141" target="_blank" rel="noopener noreferrer">Chiswick</a></li>
+        <li><a href="https://www.openstreetmap.org/way/174088744" target="_blank" rel="noopener noreferrer">Furnivall Sculling Club</a> and its <a href="https://www.openstreetmap.org/way/907324208" target="_blank" rel="noopener noreferrer">pontoon</a></li>
+        <li><a href="https://www.openstreetmap.org/way/505403205" target="_blank" rel="noopener noreferrer">University of London Boat Club</a> (the UL Boat House)</li>
+        <li><a href="https://www.openstreetmap.org/way/505408911" target="_blank" rel="noopener noreferrer">Chiswick Eyot</a></li>
+      </ul>
+      <p>Piers, pontoons and buoys are mapped objects tagged <i>man_made=pier</i> and PLA buoys; there are too many to list one by one.</p>
+
+      <h3>Tide – Environment Agency</h3>
+      <p>The live water level comes from the Environment Agency
+      <a href="https://environment.data.gov.uk/flood-monitoring/doc/tidegauge" target="_blank" rel="noopener noreferrer">real-time flood-monitoring API (tide gauges)</a>,
+      © Environment Agency, published under the
+      <a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" target="_blank" rel="noopener noreferrer">Open Government Licence v3.0</a>.
+      The game tries the <a href="https://environment.data.gov.uk/flood-monitoring/id/stations/0010" target="_blank" rel="noopener noreferrer">Hammersmith gauge</a> first, then the
+      <a href="https://environment.data.gov.uk/flood-monitoring/id/stations/0009" target="_blank" rel="noopener noreferrer">Richmond gauge</a> (its tide runs about 30 minutes later),
+      and a simulated tide if neither answers. The last 48 hours of readings give the low and high water marks; the stream speed is estimated from how fast the level is rising or falling.</p>
+
+      <h3>Rules – PLA Tideway Code</h3>
+      <p>The positioning, crossing, overtaking and turning rules come from the Port of London Authority's
+      <a href="https://pla.co.uk/tideway-code" target="_blank" rel="noopener noreferrer">Tideway Code</a>
+      (<a href="https://pla.co.uk/sites/default/files/2025-11/Tideway_Code.pdf" target="_blank" rel="noopener noreferrer">PDF, November 2025 edition</a>).
+      The game is a simplified training version of the Code; the PLA text is the only authority.</p>
+
+      <h3>What is estimated or invented</h3>
+      <ul>
+        <li>Exact bridge pier positions (they are not in OpenStreetMap) and the number of arches</li>
+        <li>The extent of the Crossing Zones and which bank is the slack bank: read from the Code's text, not from its zone maps</li>
+        <li>How much narrower the river gets at low tide, and the stream speeds across the channel</li>
+        <li>Boat speeds and handling, the other crews and the coach</li>
+      </ul>
+      <p class="note">Not for navigation. This is a game, not a guide to the river.</p>
+
+      <h3>Also used</h3>
+      <p>The page is hosted on <a href="https://www.cloudflare.com/" target="_blank" rel="noopener noreferrer">Cloudflare</a>, and the shared boards are stored in its D1 database. Only the nickname and the result of each row are saved.</p>
+    </section>
   </div>
 </div>
 

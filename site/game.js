@@ -719,6 +719,7 @@
       `Dodgy overtakes ${st.badOv} (${sg(pt.dodgy)}) · Code penalties ${st.codePenalties} (${sg(pt.code)}) · ` +
       `Collisions + groundings ${st.hits + st.groundings} (${sg(pt.hits)}) · Time ${sg(pt.time)}`;
     $('startBtn').textContent = 'Row again';
+    showTab('play');
     $('menu').style.display = 'flex';
     if (!ONLINE) { renderBoard(entry.id); return; }
     $('boardNote').textContent = 'Saving your result online…';
@@ -1371,6 +1372,42 @@
     finish();
   }
 
+  // Exit: back to the menu without saving. The first tap arms the button (so a stray tap on a phone does not
+  // throw a row away); a second tap within 3 seconds leaves.
+  let exitTimer = 0;
+  function disarmExit() { clearTimeout(exitTimer); exitTimer = 0; $('bExit').textContent = '✕ Exit'; $('bExit').classList.remove('armed'); }
+  function exitGame() {
+    if (!st.running) return;
+    if (!exitTimer) {
+      $('bExit').textContent = 'Tap again to exit';
+      $('bExit').classList.add('armed');
+      exitTimer = setTimeout(disarmExit, 3000);
+      return;
+    }
+    disarmExit();
+    st.running = false; st.finished = true; st.paused = false; st.turn = 0;
+    resetCoach();
+    toastUntil = 0;
+    $('bOff').style.display = 'none';
+    $('result').textContent = '\nRow abandoned – nothing was saved.';
+    $('startBtn').textContent = 'Start';
+    showTab('play');
+    $('menu').style.display = 'flex';
+    renderBoard();
+  }
+
+  // Menu tabs: Play / Rules / Sources
+  function showTab(name) {
+    document.querySelectorAll('#tabs [role=tab]').forEach((b) => {
+      const on = b.dataset.tab === name;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    document.querySelectorAll('.tabpanel').forEach((p) => { p.hidden = p.id !== `tab-${name}`; });
+    $('menuBox').scrollTop = 0;
+  }
+  document.querySelectorAll('#tabs [role=tab]').forEach((b) => { b.onclick = () => showTab(b.dataset.tab); });
+
   window.addEventListener('keydown', (e) => {
     if ($('menu').style.display !== 'none') return;
     keys[e.key] = true;
@@ -1402,6 +1439,7 @@
   $('bPause').onclick = togglePause;
   $('bTurn').onclick = () => startTurn();
   $('bOff').onclick = getOff;
+  $('bExit').onclick = exitGame;
   $('startBtn').onclick = startGame;
   $('optTide').onchange = () => { $('manualTide').style.display = $('optTide').value === 'manual' ? 'block' : 'none'; };
   $('optTideFrac').oninput = () => { $('optTideFracV').textContent = $('optTideFrac').value; };
