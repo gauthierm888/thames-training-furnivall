@@ -189,7 +189,7 @@
     route.obstacles.forEach((o) => {
       const xs = o.poly.map((p) => p[0]), ys = o.poly.map((p) => p[1]);
       o.bb = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
-      // Extent in the river frame, used by the auto-steer to dodge fixed obstacles
+      // Extent in the river frame, used by the other crews to dodge fixed obstacles
       const ps = o.poly.map(([x, y]) => project(route, x, y));
       o.s0 = Math.min(...ps.map((p) => p.s)); o.s1 = Math.max(...ps.map((p) => p.s));
       o.d0 = Math.min(...ps.map((p) => p.d)); o.d1 = Math.max(...ps.map((p) => p.d));
@@ -243,19 +243,19 @@
   }
   function worldPos(p, d) { return { x: p.x - Math.sin(p.th) * d, y: p.y + Math.cos(p.th) * d }; }
 
-  // Near a bridge, aim for the middle of the arch the lane runs through (or the nearest clear one)
-  function archAdjusted(route, s, d) {
-    for (const b of route.bridges) {
-      if (!b.archCentres || s < b.s - 90 || s > b.s + 20) continue;
-      const clear = boat.halfSpan + 6;
-      const arch = b.archCentres.find((a) => d > a.lo + clear && d < a.hi - clear);
-      if (arch) return d;
-      return b.archCentres.reduce((best, a) => (Math.abs(a.d - d) < Math.abs(best.d - d) ? a : best)).d;
-    }
-    return d;
+  // The line the boat is following: its centre within LANE_ON (and roughly parallel to the river), kept until it strays beyond LANE_OFF
+  const LANE_ON = 5, LANE_OFF = 8;
+  function updateFollow(F) {
+    if (st.turn) { st.followLane = null; return; }
+    const p = sample(route, st.s);
+    const offs = ['left', 'middle', 'right'].map((ln) => ({ ln, off: Math.abs(st.d - laneTarget(p, ln, F)) }));
+    const cur = offs.find((o) => o.ln === st.followLane);
+    if (cur && cur.off <= LANE_OFF) return;
+    const best = offs.reduce((a, b) => (b.off < a.off ? b : a));
+    st.followLane = best.off <= LANE_ON && Math.abs(st.psi) < 0.3 ? best.ln : null;
   }
 
-  // Auto-steer dodges fixed pontoons and rafts within 70 m ahead (bridge piers are handled by archAdjusted)
+  // Fixed pontoons and rafts within 70 m ahead: the other crews (not the player) steer round them
   function avoidObstacles(route, s, d, target, hs = boat.halfSpan, len = boat.len, dir = 1) {
     const clear = hs + 5;
     let dodging = false;
@@ -396,13 +396,14 @@
   let boat = BOATS['1x'];
   const st = {
     running: false, paused: false, s: 0, d: 0, psi: 0, u: 0, rate: 24, rowing: true,
-    lane: 'middle', manual: false, steer: 0, time: 0, groundings: 0, groundedFor: 0,
+    steer: 0, followLane: null, time: 0, groundings: 0, groundedFor: 0,
     phase: 0, timeScale: 4, camTh: 0, zoom: 2.4, finished: false, vs: 0, stream: 0,
     recover: 'centre', hits: 0, code: null, codeOut: 0, codePenalties: 0, codeOk: 0, codeTotal: 0,
     turn: 0, turns: 0, odo: 0, reachedUL: false, player: 'Rower', codeGrace: 0,
     cleanOv: 0, badOv: 0, away: false, safe: 0, passGrace: 0, dockDist: 0, boatAhead: null,
   };
-  const keys = {};
+  // Steering is manual only: held keys / on-screen buttons turn the bow, nothing steers the boat for you
+  const hold = { left: false, right: false };
   let toastUntil = 0;
 
   // Announcements stay on screen TOAST_STRETCH times longer than the duration given where they are triggered
@@ -419,13 +420,13 @@
     st.player = ($('optName').value.trim() || 'Rower').slice(0, 20);
     store('tideway-name', st.player);
     updateTide();
-    // Start alongside the Furnivall pontoon, facing upstream
+    // Start level with the Furnivall pontoon, facing upstream, on the middle line (clear of the piers and pontoons ahead)
     const p = sample(route, route.dock.s);
-    const m = boat.halfSpan + 4;
-    const d0 = clamp(route.dock.tipD + boat.halfSpan + 3, -navR(p, tide.frac) + m, navL(p, tide.frac) - m);
+    const d0 = laneTarget(p, 'middle', tide.frac);
+    hold.left = hold.right = false;
     Object.assign(st, {
       running: true, paused: false, finished: false, s: route.dock.s, d: d0, psi: 0, u: 0,
-      rate: 24, rowing: true, lane: 'middle', manual: false, time: 0, groundings: 0, groundedFor: 0, camTh: p.th,
+      rate: 24, rowing: true, followLane: 'middle', time: 0, groundings: 0, groundedFor: 0, camTh: p.th,
       hits: 0, code: null, codeOut: 0, codePenalties: 0, codeOk: 0, codeTotal: 0, turn: 0, turns: 0, odo: 0, reachedUL: false, codeGrace: 0,
       cleanOv: 0, badOv: 0, away: false, safe: 0, passGrace: 0, dockDist: 0, boatAhead: null,
     });
@@ -433,7 +434,7 @@
     resetCoach();
     $('menu').style.display = 'none';
     updateButtons();
-    toast(`Row where you like – UL Boat House = +${UL_BONUS} pts. Get off at the pontoon when you're done!`, 4);
+    toast(`Steer with ◀ ▶ – a line turns yellow while you follow it. UL Boat House = +${UL_BONUS} pts. Get off at the pontoon when you're done!`, 4);
   }
 
   // ---------- Score ----------
@@ -745,7 +746,6 @@
     else if (roomR >= diam) st.turn = -1;
     else if (force) st.turn = roomL >= roomR ? 1 : -1;
     else { toast('Not enough room to turn here', 2); return; }
-    st.manual = false;
     toast('Turning round – sweeping across the river', 2.5);
     updateButtons();
   }
@@ -756,9 +756,8 @@
     st.s = clamp(total - st.s, 0, route.total);
     st.d = -st.d;
     st.psi -= st.turn * Math.PI;
-    st.turn = 0; st.turns++; st.manual = false; st.codeOut = 0; st.codeGrace = 25; // time to settle into the right lane after the turn
+    st.turn = 0; st.turns++; st.codeOut = 0; st.codeGrace = 25; st.followLane = null; // time to settle into the right lane after the turn
     st.code = codeStatus(route, st.s, st.d, tide.frac);
-    st.lane = st.code.lane || st.lane;
     npcs.forEach((n) => { n.sign = 0; n.near = false; n.minGap = 99; });
     resetCoach();
     updateButtons();
@@ -769,7 +768,6 @@
     st.groundings++;
     st.time += 15;
     st.u = 0; st.psi = 0; st.groundedFor = 2; st.recover = 'centre'; st.turn = 0;
-    st.lane = 'middle'; st.manual = false;
     toast(`Aground on the ${side} foreshore! +15 s`, 2.5);
     coachAlert(5);
     updateButtons();
@@ -807,26 +805,8 @@
     st.u += (target - st.u) * Math.min(1, dt / (st.turn || st.rowing ? 3 : 8));
 
     let r;
-    if (st.turn) {
-      r = st.turn * boat.yaw;
-    } else if (st.manual) {
-      r = st.steer * boat.yaw;
-    } else {
-      // Auto-steer to the lane, looking a little ahead so the boat anticipates bends.
-      // It dodges pontoons and goes round other boats on the outside, as the Code asks.
-      const pa = sample(route, st.s + 30);
-      const a1 = avoidObstacles(route, st.s, st.d, laneTarget(pa, st.lane, F));
-      const items = npcs.map((n) => { const o = npcPos(n); return { s: o.s, d: o.d, len: n.spec.len, hs: n.spec.halfSpan }; });
-      const bd = boatDodge(items, st.s, st.d, a1.target, boat.halfSpan, boat.len, 1, (p.laneL - p.laneR) / 2);
-      const a2 = bd.dodging ? avoidObstacles(route, st.s, st.d, bd.target) : a1;
-      const tgt = archAdjusted(route, st.s + 30, a2.target);
-      const dodging = a1.dodging || bd.dodging;
-      const e = tgt - st.d;
-      const inCZ = route.crossings.some((z) => st.s >= z.s0 && st.s <= z.s1);
-      const lim = inCZ || dodging ? 0.7 : 0.3;
-      const psiD = clamp(e * (dodging ? 0.04 : 0.015), -lim, lim);
-      r = clamp(1.2 * (psiD - st.psi) + p.k * st.vs, -boat.yaw, boat.yaw);
-    }
+    if (st.turn) r = st.turn * boat.yaw;        // the turn-round manoeuvre is the only thing the boat does by itself
+    else r = st.steer * boat.yaw;               // otherwise only your own steering turns the bow
     st.stream = streamAt(p, st.d, F);
     st.vs = (st.u * Math.cos(st.psi) + st.stream) / (1 - p.k * st.d);
     st.d += st.u * Math.sin(st.psi) * dt;
@@ -836,6 +816,7 @@
     st.odo += Math.abs(st.vs) * dt;
     st.phase += (st.rowing ? st.rate / 60 : 0) * dt * 2 * Math.PI;
     st.time += dt;
+    updateFollow(F);
     const bwP = worldPos(p, st.d);
     st.dockDist = Math.hypot(bwP.x - route.dock.x, bwP.y - route.dock.y);
     if (st.dockDist > 150) st.away = true;
@@ -987,9 +968,10 @@
     polyline((q) => q.laneL - (q.laneL + q.laneR) * INSHORE, surreyLeft ? 'rgba(255,90,90,.45)' : 'rgba(90,220,110,.45)', 1.5, [2, 8]);
     polyline((q) => -q.laneR + (q.laneL + q.laneR) * INSHORE, surreyLeft ? 'rgba(90,220,110,.45)' : 'rgba(255,90,90,.45)', 1.5, [2, 8]);
 
-    // Lanes
+    // Lines you can steer along; the one you are following correctly turns yellow
     ['left', 'middle', 'right'].forEach((ln) => {
-      polyline((q) => laneTarget(q, ln, F), ln === st.lane ? 'rgba(255,215,90,.75)' : 'rgba(255,255,255,.28)', ln === st.lane ? 2 : 1.2, [10, 12]);
+      const on = ln === st.followLane;
+      polyline((q) => laneTarget(q, ln, F), on ? 'rgba(255,215,0,.95)' : 'rgba(255,255,255,.42)', on ? 3 : 1.6, [10, 12]);
     });
 
     // Stream arrows
@@ -1298,7 +1280,6 @@
     $('hSplit').textContent = st.vs > 0.3 ? fmtTime(500 / st.vs) : '–';
     // $('hSpeed').textContent = `${st.u.toFixed(1)} / ${st.vs.toFixed(1)} m/s`;
     $('hRate').textContent = st.rowing ? `${st.rate} spm` : 'easy oar';
-    // $('hMode').textContent = st.manual ? 'MANUAL (←/→)' : `auto · ${st.lane} lane`;
     const L = navL(p, F), Rr = navR(p, F);
     const x = (st.d + Rr) / (L + Rr);
     $('hSide').textContent = x > 0.62 ? `${route.leftBank} side (left)` : x < 0.38 ? `${route.rightBank} side (right)` : 'centre';
@@ -1327,26 +1308,19 @@
     $('bOff').style.display = atDock ? '' : 'none';
     $('bTurn').classList.toggle('on', st.reachedUL && route.dir === 'up' && !st.turn);
     const cs = st.code || codeStatus(route, st.s, st.d, F);
-    const laneKey = { left: 'A', middle: 'S', right: 'D' }[cs.lane];
+    const laneName = { left: 'left line', middle: 'middle line', right: 'right line' }[cs.lane];
     $('hCode').innerHTML = `${cs.rule}<br>${cs.ok ? '<span style="color:#7dff7d">✔ in position</span>'
       : `<span style="color:#ff7b7b">✘ out of position${st.codeOut > 0 ? ` (${Math.max(0, CODE_GRACE - st.codeOut).toFixed(1)} s)` : ''}</span>`}` +
-      `${cs.lane && (cs.lane !== st.lane || !cs.ok) ? ` – ${cs.lane} lane [${laneKey}]` : ''}` +
+      `${cs.lane && !cs.ok ? ` – steer to the ${laneName}` : ''}` +
       `${cs.note ? `<br><span style="color:#ffe27a">${cs.note}</span>` : ''} · penalties: ${st.codePenalties}`;
 
-    // Look ahead: does the chosen lane dry out?
+    // Look ahead: shallows and obstacles in your path (you steer, so these are yours to avoid)
     let warn = '';
-    if (st.manual) {
-      const q = sample(route, st.s + 40);
-      if (st.d + boat.halfSpan + 5 > navL(q, F) || st.d - boat.halfSpan - 5 < -navR(q, F)) warn = '⚠ Shallow water ahead – steer away from the bank!';
-    } else {
-      for (let a = 0; a <= 200; a += 10) {
-        const q = sample(route, st.s + a), d = laneTarget(q, st.lane);
-        if (d + boat.halfSpan > navL(q, F) || d - boat.halfSpan < -navR(q, F)) {
-          warn = `⚠ ${st.lane} lane dries out ${a ? `in ${a} m` : 'here'} – following the water's edge`;
-          break;
-        }
-      }
-    }
+    const q40 = sample(route, st.s + 40);
+    if (st.d + boat.halfSpan + 5 > navL(q40, F) || st.d - boat.halfSpan - 5 < -navR(q40, F)) warn = '⚠ Shallow water ahead – steer away from the bank!';
+    const clearW = boat.halfSpan + 4;
+    const ahead = !st.turn && route.obstacles.find((o) => !o.dock && o.s1 > st.s && o.s0 < st.s + 90 && st.d + clearW > o.d0 && st.d - clearW < o.d1);
+    if (ahead) warn = ahead.bridge ? '⚠ Bridge pier ahead – aim for an arch!' : '⚠ Pier or pontoon ahead – steer clear!';
     const ba = st.boatAhead;
     if (!warn && st.away && !st.turn && st.dockDist > DOCK_RADIUS && st.dockDist < 400) warn = '⚓ Furnivall pontoon close – take the Middlesex bank to get off the boat';
     if (ba && ba.dist < 80) warn = ba.bridge || route.bridges.some((b) => Math.abs(b.s - st.s - ba.dist) < 75) ?
@@ -1356,15 +1330,11 @@
   }
 
   function updateButtons() {
-    $('bL').classList.toggle('on', !st.manual && st.lane === 'left');
-    $('bM').classList.toggle('on', !st.manual && st.lane === 'middle');
-    $('bR').classList.toggle('on', !st.manual && st.lane === 'right');
     $('bRow').textContent = st.rowing ? 'Easy oar' : 'Row!';
     $('bPause').textContent = st.paused ? 'Resume' : 'Pause';
   }
 
   // ---------- Input ----------
-  function setLane(l) { st.lane = l; st.manual = false; updateButtons(); }
   function changeRate(d) { st.rate = clamp(st.rate + d, 16, 40); st.rowing = true; updateButtons(); }
   function togglePause() { if (st.running) { st.paused = !st.paused; updateButtons(); } }
   function getOff() {
@@ -1408,13 +1378,13 @@
   }
   document.querySelectorAll('#tabs [role=tab]').forEach((b) => { b.onclick = () => showTab(b.dataset.tab); });
 
+  // Steer left / right: ← or A, → or D (hold), or hold the on-screen buttons
+  const STEER_CODES = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right' };
   window.addEventListener('keydown', (e) => {
     if ($('menu').style.display !== 'none') return;
-    keys[e.key] = true;
+    const dir = STEER_CODES[e.code];
+    if (dir) { hold[dir] = true; e.preventDefault(); return; }
     switch (e.key) {
-      case 'a': case 'A': case '1': setLane('left'); break;
-      case 's': case 'S': case '2': setLane('middle'); break;
-      case 'd': case 'D': case '3': setLane('right'); break;
       case 'ArrowUp': changeRate(2); e.preventDefault(); break;
       case 'ArrowDown': changeRate(-2); e.preventDefault(); break;
       case ' ': st.rowing = !st.rowing; updateButtons(); e.preventDefault(); break;
@@ -1424,15 +1394,23 @@
       case 'r': case 'R': startGame(); break;
       case '+': case '=': st.zoom = Math.min(8, st.zoom * 1.2); break;
       case '-': case '_': st.zoom = Math.max(0.4, st.zoom / 1.2); break;
-      case 'ArrowLeft': case 'ArrowRight': st.manual = true; updateButtons(); e.preventDefault(); break;
     }
   });
-  window.addEventListener('keyup', (e) => { keys[e.key] = false; });
+  window.addEventListener('keyup', (e) => { const dir = STEER_CODES[e.code]; if (dir) hold[dir] = false; });
+  window.addEventListener('blur', () => { hold.left = hold.right = false; });
   cv.addEventListener('wheel', (e) => { st.zoom = clamp(st.zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1), 0.4, 8); e.preventDefault(); }, { passive: false });
 
-  $('bL').onclick = () => setLane('left');
-  $('bM').onclick = () => setLane('middle');
-  $('bR').onclick = () => setLane('right');
+  // Hold-to-steer buttons (pointer capture keeps the press alive if the finger slides off the button)
+  function holdButton(id, dir) {
+    const b = $(id);
+    const press = (e) => { hold[dir] = true; try { b.setPointerCapture(e.pointerId); } catch (err) { /* not supported */ } e.preventDefault(); };
+    const release = () => { hold[dir] = false; };
+    b.addEventListener('pointerdown', press);
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((ev) => b.addEventListener(ev, release));
+    b.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+  holdButton('bL', 'left');
+  holdButton('bR', 'right');
   $('bRateUp').onclick = () => changeRate(2);
   $('bRateDn').onclick = () => changeRate(-2);
   $('bRow').onclick = () => { st.rowing = !st.rowing; updateButtons(); };
@@ -1450,7 +1428,9 @@
     const realDt = Math.min(0.1, (now - last) / 1000);
     last = now;
     updateTide();
-    st.steer = (keys.ArrowLeft ? 1 : 0) - (keys.ArrowRight ? 1 : 0);
+    st.steer = (hold.left ? 1 : 0) - (hold.right ? 1 : 0);
+    $('bL').classList.toggle('on', hold.left);
+    $('bR').classList.toggle('on', hold.right);
     if (st.running && !st.paused) {
       let dt = realDt * st.timeScale;
       while (dt > 0 && st.running) { const h = Math.min(0.05, dt); physics(h); dt -= h; }

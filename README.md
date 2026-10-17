@@ -79,6 +79,6 @@ within a minute or so; the address stays the same and **scores are kept** (they 
 - **Privacy:** only the nickname and the result are stored. No IP address or account is recorded by the game.
 - **Free-plan limits:** see Cloudflare's pricing pages; a game among friends is far inside them. If the API is unavailable the game
   keeps working and sends the result later.
-- **Controls:** lanes `A`/`S`/`D`, manual steering `←`/`→`, rate `↑`/`↓`, easy oar `Space`, turn round `U`, get off `G`, pause `P`, restart `R`, zoom `+`/`-`.
+- **Controls:** steer left `←`/`A` and right `→`/`D` (hold; there is no auto-steer), rate `↑`/`↓`, easy oar `Space`, turn round `U`, get off `G`, pause `P`, restart `R`, zoom `+`/`-`.
 - **Rebuilding the river data** (rarely needed): run `data-build/build-river.ps1` from inside `data-build` (PowerShell) and copy the
   resulting `river-data.js` into `site/`. Pier positions on bridges are estimates; the Tideway Code zones are approximated from the Code text.

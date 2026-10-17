@@ -22,6 +22,8 @@
   #controls { bottom: calc(var(--attrib-h) + 10px); left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100vw - 16px); display: flex; flex-direction: column; gap: 6px; }
   #controls .btnrow { display: flex; gap: 6px; justify-content: center; }
   #controls button { flex: 1 1 auto; white-space: nowrap; }
+  /* Steering buttons are held down: big targets, no text selection / long-press menu / scroll gestures */
+  #controls .steer button { flex: 1 1 0; min-width: 118px; padding: 14px 8px; font-size: 16px; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
   button, select, input { font: inherit; }
   button { background: #1f5d8c; color: #fff; border: 1px solid #5fa0d0; border-radius: 6px; padding: 8px 12px; cursor: pointer; }
   button.on { background: #e0a020; border-color: #ffd47a; color: #102030; font-weight: 700; }
@@ -77,6 +79,7 @@
     #controls { padding: 6px; gap: 5px; }
     #controls .btnrow { gap: 5px; }
     #controls button { padding: 7px 8px; font-size: 13px; }
+    #controls .steer button { padding: 14px 8px; font-size: 16px; }
     #attrib { left: 6px; right: 6px; text-align: center; }
   }
   @media (max-width: 400px) {
@@ -99,7 +102,6 @@
   <div class="row"><span class="lbl">Split /500m</span><span id="hSplit">–</span></div>
   <!-- <div class="row"><span class="lbl">Speed water/ground</span><span id="hSpeed">–</span></div> -->
   <div class="row"><span class="lbl">Rate</span><span id="hRate">–</span></div>
-  <!-- <div class="row"><span class="lbl">Steering</span><span id="hMode">–</span></div> -->
   <div class="row"><span class="lbl">Position</span><span id="hSide">–</span></div>
   <hr>
   <div class="row"><span class="lbl">Tide</span><span id="hTide">loading…</span></div>
@@ -121,10 +123,9 @@
 </div>
 
 <div id="controls" class="panel">
-  <div class="btnrow">
-    <button id="bL" title="A or 1">◀ Left</button>
-    <button id="bM" title="S or 2">Middle</button>
-    <button id="bR" title="D or 3">Right ▶</button>
+  <div class="btnrow steer">
+    <button id="bL" title="Hold to steer left (← or A)">◀ Steer left</button>
+    <button id="bR" title="Hold to steer right (→ or D)">Steer right ▶</button>
   </div>
   <div class="btnrow">
     <button id="bRateDn" title="↓">Rate –</button>
@@ -209,8 +210,8 @@
 
       <h3>Controls</h3>
       <table>
-        <tr><td><kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>Lane: left, middle or right (the boat steers itself to it)</td></tr>
-        <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Steer by hand (hold). You can then run aground or hit things</td></tr>
+        <tr><td><kbd>←</kbd> or <kbd>A</kbd></td><td>Steer left (hold it down)</td></tr>
+        <tr><td><kbd>→</kbd> or <kbd>D</kbd></td><td>Steer right (hold it down)</td></tr>
         <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Stroke rate up / down</td></tr>
         <tr><td><kbd>Space</kbd></td><td>Easy oar / row again</td></tr>
         <tr><td><kbd>U</kbd> or <kbd>T</kbd></td><td>Turn round</td></tr>
@@ -219,13 +220,17 @@
         <tr><td><kbd>R</kbd></td><td>Start a new row straight away (the current one is not saved)</td></tr>
         <tr><td><kbd>+</kbd> <kbd>-</kbd> or mouse wheel</td><td>Zoom</td></tr>
       </table>
-      <p class="note">On a phone, use the on-screen buttons.</p>
+      <p class="note">On a phone, hold the big <b>Steer left</b> / <b>Steer right</b> buttons and use the other on-screen buttons.</p>
+
+      <h3>Steering and the lines</h3>
+      <p>The boat never steers itself: you have to hold <b>Steer left</b> or <b>Steer right</b> to turn the bow. It then keeps its heading, so in a bend you must keep turning to stay in the river, and you can run aground or hit piers, pontoons, bridge piers and other crews.</p>
+      <p>Three dashed lines run along the river: the left line, the middle line and the right line. They show where each lane lies. The line you are following correctly (within a few metres of it, pointing the right way) turns <b>yellow</b> and thick; the others stay faint white. The Tideway Code panel tells you which line to take.</p>
 
       <h3>Lanes, tide and low water</h3>
-      <p>Left and right always mean left and right in your direction of travel. The left and right lanes are the Inshore Zones along each bank;
-      the middle lane is the starboard (right-hand) half of the Fairway, the deeper channel in the middle.</p>
-      <p>The tide comes live from the Environment Agency tide gauges. At low tide the river is narrower, especially on the inside of bends, and an Inshore Zone can dry out.
-      In auto-steer the boat then follows the water's edge; when steering by hand you can run aground.
+      <p>Left and right always mean left and right in your direction of travel. The left and right lines are the Inshore Zones along each bank;
+      the middle line is the starboard (right-hand) half of the Fairway, the deeper channel in the middle.</p>
+      <p>The tide comes live from the Environment Agency tide gauges. At low tide the river is narrower, especially on the inside of bends, and an Inshore Zone can dry out:
+      its line then moves in to the edge of the water, and if you stray into the shallows you run aground.
       The stream is strongest in the deep water, on the outside of bends, and weakest near the banks.</p>
 
       <h3>The Tideway Code</h3>
@@ -239,7 +244,7 @@
       </ul>
 
       <h3>Turning round</h3>
-      <p>Press <kbd>U</kbd> to sweep across the river and head back. The Code says never to spin on the spot, so the boat makes a wide arc. It needs room, and the tide carries you while you turn, so don't turn just upstream of a bridge or pier. Past the end of the map the boat turns round by itself.</p>
+      <p>Press <kbd>U</kbd> to sweep across the river and head back. The Code says never to spin on the spot, so the boat makes a wide arc by itself while it turns; take over the steering again once it has come round. It needs room, and the tide carries you while you turn, so don't turn just upstream of a bridge or pier. Past the end of the map the boat turns round by itself.</p>
 
       <h3>Other crews and overtaking</h3>
       <p>Single sculls to eights share the river, some sitting still and some rowing slowly. They always obey the Code: stationary boats and boats going against the stream sit in the Inshore Zone, and boats going with the stream keep to the starboard side of the Fairway.</p>
@@ -248,7 +253,7 @@
         <li><b>Dodgy overtake (−100 points, +5 s):</b> anything else.</li>
         <li><b>Hitting a boat:</b> +15 s and −150 points.</li>
       </ul>
-      <p>In auto-steer the boat goes round other crews for you. Use <kbd>Space</kbd> (easy oar) to hold back behind a slower boat near a bridge.</p>
+      <p>You steer round other crews yourself. A warning appears when something is in your way, and you can use <kbd>Space</kbd> (easy oar) to hold back behind a slower boat near a bridge.</p>
 
       <h3>The coach</h3>
       <p>Break the Code, collide, run aground or overtake badly and the coach's launch roars up alongside to shout at you. It goes away once you behave.</p>
